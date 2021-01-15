@@ -66,13 +66,13 @@ export const enum ElementTypes {
 
 /**自定义的编译节点类型 */
 export interface Node {
-  type: NodeTypes       
+  type: NodeTypes
   loc: SourceLocation
 }
 
 // The node's range. The `start` is inclusive and `end` is exclusive.
 // [start, end)
-/**自定义的编译节点的文本数据范围信息 */
+/**自定义的编译节点的文本数据和它在模板文本中的范围信息 */
 export interface SourceLocation {
   start: Position
   end: Position
@@ -104,7 +104,7 @@ export type TemplateChildNode =
   | ForNode
   | TextCallNode
 
-  /**根节点 */
+/**根节点 */
 export interface RootNode extends Node {
   type: NodeTypes.ROOT
   children: TemplateChildNode[]
@@ -133,7 +133,7 @@ export interface BaseElementNode extends Node {
   tag: string                                 //元素标签
   tagType: ElementTypes                       //标签类型(普通元素,组件,插槽,template)
   isSelfClosing: boolean                      //是否自闭合元素(<meta>,<br>,<hr>...)
-  props: Array<AttributeNode | DirectiveNode> 
+  props: Array<AttributeNode | DirectiveNode>
   children: TemplateChildNode[]
 }
 
@@ -141,10 +141,10 @@ export interface BaseElementNode extends Node {
 export interface PlainElementNode extends BaseElementNode {
   tagType: ElementTypes.ELEMENT                 //标签类型为普通元素
   codegenNode:
-    | VNodeCall
-    | SimpleExpressionNode // when hoisted
-    | CacheExpression // when cached by v-once
-    | undefined
+  | VNodeCall
+  | SimpleExpressionNode // when hoisted
+  | CacheExpression // when cached by v-once
+  | undefined
   ssrCodegenNode?: TemplateLiteral
 }
 
@@ -152,18 +152,18 @@ export interface PlainElementNode extends BaseElementNode {
 export interface ComponentNode extends BaseElementNode {
   tagType: ElementTypes.COMPONENT     //标签类型为组件
   codegenNode:
-    | VNodeCall
-    | CacheExpression // when cached by v-once
-    | undefined
+  | VNodeCall
+  | CacheExpression // when cached by v-once
+  | undefined
   ssrCodegenNode?: CallExpression
 }
 
 export interface SlotOutletNode extends BaseElementNode {
   tagType: ElementTypes.SLOT
   codegenNode:
-    | RenderSlotCall
-    | CacheExpression // when cached by v-once
-    | undefined
+  | RenderSlotCall
+  | CacheExpression // when cached by v-once
+  | undefined
   ssrCodegenNode?: CallExpression
 }
 
@@ -181,23 +181,23 @@ export interface TextNode extends Node {
 /**注释节点 */
 export interface CommentNode extends Node {
   type: NodeTypes.COMMENT //类型为注释
-  content: string         //内容
+  content: string         //注释内容
 }
 
-/**属性节点 */
+/**属性节点,例如: :class='ccc'或 class="'ccc'" */
 export interface AttributeNode extends Node {
   type: NodeTypes.ATTRIBUTE     //类型为属性
-  name: string                  //属性名称
-  value: TextNode | undefined   //属性值
+  name: string                  //属性名称 例如: :class='ccc'或 class="'ccc'",name为class的文本值
+  value: TextNode | undefined   //属性值,例如: :class='ccc'或 class="'ccc'",TextNode.content为ccc或'ccc'的文本值
 }
 
 /**指令节点 */
 export interface DirectiveNode extends Node {
   type: NodeTypes.DIRECTIVE        //类型为指令
   name: string                     //指令名称
-  exp: ExpressionNode | undefined
-  arg: ExpressionNode | undefined
-  modifiers: string[]              //指令修饰符数组
+  exp: ExpressionNode | undefined  //表示指令绑定的属性的属性值,如果存在的话,例如:@click="func"或@[event]="func",exp表示func
+  arg: ExpressionNode | undefined  //表示指令绑定的属性,如果存在的话,例如: @click="func"或@[event]="func",arg表示click或[event](event为动态参数)
+  modifiers: string[]              //指令修饰符数组 例如 @click.stop.once="func",modifiers为['stop','once']
   /**
    * optional property to cache the expression parse result for v-for 可选属性，用于缓存v-for的表达式解析结果
    */
@@ -221,9 +221,9 @@ export const enum ConstantTypes {
 /**简单的表达式节点 */
 export interface SimpleExpressionNode extends Node {
   type: NodeTypes.SIMPLE_EXPRESSION  //类型为简单的表达式
-  content: string                    //内容
-  isStatic: boolean                  //是否是静态的
-  constType: ConstantTypes           //
+  content: string                    //内容,例如:插值节点:'{{var}}',content='var';指令节点:@click="func"或@[event]="func",content为'click'或'event'
+  isStatic: boolean                  //是否是静态的,表示content是属性名是字符串还是一个表示属性名的变量参数([变量参数])
+  constType: ConstantTypes           //表示content的性质
   /**
    * Indicates this is an identifier for a hoist vnode call and points to the
    * hoisted node. 指示这是提升vnode调用的标识符，并指向提升节点。
@@ -233,14 +233,14 @@ export interface SimpleExpressionNode extends Node {
    * an expression parsed as the params of a function will track
    * the identifiers declared inside the function body.
    * 解析为函数参数的表达式将跟踪函数体中声明的标识符。
-   */ 
+   */
   identifiers?: string[] //身份标识
 }
 
-/**插值节点 */
+/**插值节点({{var}}) */
 export interface InterpolationNode extends Node {
   type: NodeTypes.INTERPOLATION
-  content: ExpressionNode
+  content: ExpressionNode //{{var}}:ExpressionNode.content='var'
 }
 
 /**复杂的表达式节点 */
@@ -304,11 +304,11 @@ export interface VNodeCall extends Node {
   tag: string | symbol | CallExpression
   props: PropsExpression | undefined
   children:
-    | TemplateChildNode[] // multiple children
-    | TemplateTextChildNode // single text child
-    | SlotsExpression // component slots
-    | ForRenderListExpression // v-for fragment call
-    | undefined
+  | TemplateChildNode[] // multiple children
+  | TemplateTextChildNode // single text child
+  | SlotsExpression // component slots
+  | ForRenderListExpression // v-for fragment call
+  | undefined
   patchFlag: string | undefined     //patch标注
   dynamicProps: string | undefined  //动态的prop
   directives: DirectiveArguments | undefined
@@ -441,24 +441,24 @@ export interface DirectiveArguments extends ArrayExpression {
 
 export interface DirectiveArgumentNode extends ArrayExpression {
   elements:  // dir, exp, arg, modifiers
-    | [string]
-    | [string, ExpressionNode]
-    | [string, ExpressionNode, ExpressionNode]
-    | [string, ExpressionNode, ExpressionNode, ObjectExpression]
+  | [string]
+  | [string, ExpressionNode]
+  | [string, ExpressionNode, ExpressionNode]
+  | [string, ExpressionNode, ExpressionNode, ObjectExpression]
 }
 
 // renderSlot(...)
 export interface RenderSlotCall extends CallExpression {
   callee: typeof RENDER_SLOT
   arguments:  // $slots, name, props, fallback
-    | [string, string | ExpressionNode]
-    | [string, string | ExpressionNode, PropsExpression]
-    | [
-        string,
-        string | ExpressionNode,
-        PropsExpression | '{}',
-        TemplateChildNode[]
-      ]
+  | [string, string | ExpressionNode]
+  | [string, string | ExpressionNode, PropsExpression]
+  | [
+    string,
+    string | ExpressionNode,
+    PropsExpression | '{}',
+    TemplateChildNode[]
+  ]
 }
 
 export type SlotsExpression = SlotsObjectExpression | DynamicSlotsExpression
