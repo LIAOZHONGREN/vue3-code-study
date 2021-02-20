@@ -64,7 +64,7 @@ export const enum ElementTypes {
   TEMPLATE         //模板
 }
 
-/**自定义的编译节点类型 */
+/**自定义的编译节点类型 type:节点类型;loc:节点文本范围*/
 export interface Node {
   type: NodeTypes
   loc: SourceLocation
@@ -132,7 +132,7 @@ export interface BaseElementNode extends Node {
   ns: Namespace                               //命名空间
   tag: string                                 //元素标签
   tagType: ElementTypes                       //标签类型(普通元素,组件,插槽,template)
-  isSelfClosing: boolean                      //是否自闭合元素(<meta>,<br>,<hr>...)
+  isSelfClosing: boolean                      //标签是否自闭合(<div/>)
   props: Array<AttributeNode | DirectiveNode>
   children: TemplateChildNode[]
 }
@@ -199,7 +199,7 @@ export interface DirectiveNode extends Node {
   arg: ExpressionNode | undefined  //表示指令绑定的属性,如果存在的话,例如: @click="func"或@[event]="func",arg表示click或[event](event为动态参数)
   modifiers: string[]              //指令修饰符数组 例如 @click.stop.once="func",modifiers为['stop','once']
   /**
-   * optional property to cache the expression parse result for v-for 可选属性，用于缓存v-for的表达式解析结果
+   * optional property to cache the expression parse result for v-for 可选属性，v-for的表达式解析结果
    */
   parseResult?: ForParseResult
 }
@@ -214,7 +214,7 @@ export interface DirectiveNode extends Node {
 export const enum ConstantTypes {
   NOT_CONSTANT = 0, //不是常量
   CAN_SKIP_PATCH,   //可以跳过patch处理
-  CAN_HOIST,        //可以吊起
+  CAN_HOIST,        //可以提升(在render函数前创建后再在render中使用)
   CAN_STRINGIFY     //可以字符串化
 }
 
@@ -222,7 +222,7 @@ export const enum ConstantTypes {
 export interface SimpleExpressionNode extends Node {
   type: NodeTypes.SIMPLE_EXPRESSION  //类型为简单的表达式
   content: string                    //内容,例如:插值节点:'{{var}}',content='var';指令节点:@click="func"或@[event]="func",content为'click'或'event'
-  isStatic: boolean                  //是否是静态的,表示content是属性名是字符串还是一个表示属性名的变量参数([变量参数])
+  isStatic: boolean                  //是否是静态的,表示content是属性名,是字符串还是一个表示属性名的变量参数([变量参数])
   constType: ConstantTypes           //表示content的性质
   /**
    * Indicates this is an identifier for a hoist vnode call and points to the
@@ -270,7 +270,7 @@ export interface IfNode extends Node {
 
 export interface IfBranchNode extends Node {
   type: NodeTypes.IF_BRANCH
-  condition: ExpressionNode | undefined // else
+  condition: ExpressionNode | undefined //else:undefined;else-if:表示条件的表达式
   children: TemplateChildNode[]
   userKey?: AttributeNode | DirectiveNode
 }
@@ -334,10 +334,11 @@ export type JSChildNode =
   | AssignmentExpression
   | SequenceExpression
 
+/**表示一个方法调用的节点(记录调用程序和程序参数数组的一个节点) */
 export interface CallExpression extends Node {
   type: NodeTypes.JS_CALL_EXPRESSION
-  callee: string | symbol
-  arguments: (
+  callee: string | symbol //表示调用的程序
+  arguments: ( //记录调用程序的参数的数组
     | string
     | symbol
     | JSChildNode
@@ -346,17 +347,20 @@ export interface CallExpression extends Node {
     | TemplateChildNode[])[]
 }
 
+/**对象节点 */
 export interface ObjectExpression extends Node {
   type: NodeTypes.JS_OBJECT_EXPRESSION
   properties: Array<Property>
 }
 
+/**对象属性节点 */
 export interface Property extends Node {
   type: NodeTypes.JS_PROPERTY
-  key: ExpressionNode
-  value: JSChildNode
+  key: ExpressionNode            //属性的key(表达式节点)
+  value: JSChildNode             //属性值(JSChildNode)
 }
 
+/**用于表示调用函数的参数组的节点,例如a('one',row,three()):ArrayExpression.elements为['one',SimpleExpressionNode,CompoundExpressionNode] */
 export interface ArrayExpression extends Node {
   type: NodeTypes.JS_ARRAY_EXPRESSION
   elements: Array<string | JSChildNode>
@@ -375,11 +379,12 @@ export interface FunctionExpression extends Node {
   isSlot: boolean
 }
 
+/**条件表达式节点 */
 export interface ConditionalExpression extends Node {
   type: NodeTypes.JS_CONDITIONAL_EXPRESSION
-  test: JSChildNode
-  consequent: JSChildNode
-  alternate: JSChildNode
+  test: JSChildNode //条件
+  consequent: JSChildNode //true的结果
+  alternate: JSChildNode  //false的结果
   newline: boolean
 }
 
@@ -405,6 +410,7 @@ export interface BlockStatement extends Node {
   body: (JSChildNode | IfStatement)[]
 }
 
+/**字符串模板节点(es6的`${...}`) */
 export interface TemplateLiteral extends Node {
   type: NodeTypes.JS_TEMPLATE_LITERAL
   elements: (string | JSChildNode)[]
@@ -439,6 +445,7 @@ export interface DirectiveArguments extends ArrayExpression {
   elements: DirectiveArgumentNode[]
 }
 
+/**指令参数节点(dir(指令名称), exp(表示指令绑定的属性的属性值的表达式节点), arg(表示指令绑定的属性的节点表达式节点), modifiers(表示指令修饰符的对象节点)) */
 export interface DirectiveArgumentNode extends ArrayExpression {
   elements:  // dir, exp, arg, modifiers
   | [string]
@@ -447,7 +454,7 @@ export interface DirectiveArgumentNode extends ArrayExpression {
   | [string, ExpressionNode, ExpressionNode, ObjectExpression]
 }
 
-// renderSlot(...)
+/**renderSlot(...) */
 export interface RenderSlotCall extends CallExpression {
   callee: typeof RENDER_SLOT
   arguments:  // $slots, name, props, fallback

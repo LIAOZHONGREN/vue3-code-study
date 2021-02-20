@@ -67,9 +67,9 @@ export interface CodegenResult {
 
 export interface CodegenContext
   extends Omit<
-      Required<CodegenOptions>,
-      'bindingMetadata' | 'inline' | 'isTS'
-    > {
+  Required<CodegenOptions>,
+  'bindingMetadata' | 'inline' | 'isTS'
+  > {
   source: string
   code: string
   line: number
@@ -394,7 +394,7 @@ function genModulePreamble(
     }
   }
 
-  // generate import statements for helpers
+  // generate import statements for helpers 为帮助程序生成导入语句
   if (ast.helpers.length) {
     if (optimizeImports) {
       // when bundled with webpack with code-split, calling an import binding
@@ -499,6 +499,7 @@ function genHoists(hoists: (JSChildNode | null)[], context: CodegenContext) {
   context.pure = false
 }
 
+/**添加 import ... from ... */
 function genImports(importsOptions: ImportItem[], context: CodegenContext) {
   if (!importsOptions.length) {
     return
@@ -511,6 +512,7 @@ function genImports(importsOptions: ImportItem[], context: CodegenContext) {
   })
 }
 
+/**判断值是否是字符串或是简单表达式节点或是文本节点或是插值节点或是复制表达式节点 */
 function isText(n: string | CodegenNode) {
   return (
     isString(n) ||
@@ -521,6 +523,7 @@ function isText(n: string | CodegenNode) {
   )
 }
 
+/** */
 function genNodeListAsArray(
   nodes: (string | CodegenNode | TemplateChildNode[])[],
   context: CodegenContext
@@ -535,6 +538,7 @@ function genNodeListAsArray(
   context.push(`]`)
 }
 
+/** */
 function genNodeList(
   nodes: (string | symbol | CodegenNode | TemplateChildNode[])[],
   context: CodegenContext,
@@ -579,7 +583,7 @@ function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
         assert(
           node.codegenNode != null,
           `Codegen node is missing for element/if/for node. ` +
-            `Apply appropriate transforms first.`
+          `Apply appropriate transforms first.`
         )
       genNode(node.codegenNode!, context)
       break
@@ -658,6 +662,7 @@ function genNode(node: CodegenNode | symbol | string, context: CodegenContext) {
   }
 }
 
+/**把文本节点或节点表达式节点转换为代码 */
 function genText(
   node: TextNode | SimpleExpressionNode,
   context: CodegenContext
@@ -665,11 +670,13 @@ function genText(
   context.push(JSON.stringify(node.content), node)
 }
 
+/**根据简单表达式简单是否为静态类型转换为代码 */
 function genExpression(node: SimpleExpressionNode, context: CodegenContext) {
   const { content, isStatic } = node
   context.push(isStatic ? JSON.stringify(content) : content, node)
 }
 
+/**把插值节点转换为代码 */
 function genInterpolation(node: InterpolationNode, context: CodegenContext) {
   const { push, helper, pure } = context
   if (pure) push(PURE_ANNOTATION)
@@ -678,6 +685,7 @@ function genInterpolation(node: InterpolationNode, context: CodegenContext) {
   push(`)`)
 }
 
+/**把复杂表达式转换为代码 */
 function genCompoundExpression(
   node: CompoundExpressionNode,
   context: CodegenContext
@@ -692,6 +700,7 @@ function genCompoundExpression(
   }
 }
 
+/**把表达式节点转换为属性key代码,例如:{[(()=>key)()]:value ,[key2]:value2 ,key3:value3} */
 function genExpressionAsPropertyKey(
   node: ExpressionNode,
   context: CodegenContext
@@ -712,6 +721,7 @@ function genExpressionAsPropertyKey(
   }
 }
 
+/**把注释节点转换为代码(createCommentVNode('...')) */
 function genComment(node: CommentNode, context: CodegenContext) {
   if (__DEV__) {
     const { push, helper, pure } = context
@@ -722,6 +732,7 @@ function genComment(node: CommentNode, context: CodegenContext) {
   }
 }
 
+/**把VNodeCall转换为创建抽象节点的代码 */
 function genVNodeCall(node: VNodeCall, context: CodegenContext) {
   const { push, helper, pure } = context
   const {
@@ -759,6 +770,7 @@ function genVNodeCall(node: VNodeCall, context: CodegenContext) {
   }
 }
 
+/**处理可空参数 */
 function genNullableArgs(args: any[]): CallExpression['arguments'] {
   let i = args.length
   while (i--) {
@@ -768,6 +780,7 @@ function genNullableArgs(args: any[]): CallExpression['arguments'] {
 }
 
 // JavaScript
+/**把方法调用节点转换为代码 */
 function genCallExpression(node: CallExpression, context: CodegenContext) {
   const { push, helper, pure } = context
   const callee = isString(node.callee) ? node.callee : helper(node.callee)
@@ -779,6 +792,7 @@ function genCallExpression(node: CallExpression, context: CodegenContext) {
   push(`)`)
 }
 
+/**把对象表达式节点转换为代码,例如转换为:{[(()=>key)()]:value ,[key2]:value2 ,key3:value3} */
 function genObjectExpression(node: ObjectExpression, context: CodegenContext) {
   const { push, indent, deindent, newline } = context
   const { properties } = node
@@ -809,10 +823,12 @@ function genObjectExpression(node: ObjectExpression, context: CodegenContext) {
   push(multilines ? `}` : ` }`)
 }
 
+/**把数组表达式转换为代码([...]) */
 function genArrayExpression(node: ArrayExpression, context: CodegenContext) {
   genNodeListAsArray(node.elements, context)
 }
 
+/**把方法表达式节点转换为代码 */
 function genFunctionExpression(
   node: FunctionExpression,
   context: CodegenContext
@@ -860,6 +876,7 @@ function genFunctionExpression(
   }
 }
 
+/**把条件表达式节点转换为代码,例如转化为:bool?a:b */
 function genConditionalExpression(
   node: ConditionalExpression,
   context: CodegenContext
@@ -917,6 +934,7 @@ function genCacheExpression(node: CacheExpression, context: CodegenContext) {
   push(`)`)
 }
 
+/**把字符串模板节点转换为代码(`${...}`) */
 function genTemplateLiteral(node: TemplateLiteral, context: CodegenContext) {
   const { push, indent, deindent } = context
   push('`')
@@ -937,6 +955,7 @@ function genTemplateLiteral(node: TemplateLiteral, context: CodegenContext) {
   push('`')
 }
 
+/**把if的声明节点转换为代码(服务器渲染会用到) */
 function genIfStatement(node: IfStatement, context: CodegenContext) {
   const { push, indent, deindent } = context
   const { test, consequent, alternate } = node
@@ -960,7 +979,7 @@ function genIfStatement(node: IfStatement, context: CodegenContext) {
     }
   }
 }
-
+/** (服务器渲染会用到)*/
 function genAssignmentExpression(
   node: AssignmentExpression,
   context: CodegenContext
@@ -969,7 +988,7 @@ function genAssignmentExpression(
   context.push(` = `)
   genNode(node.right, context)
 }
-
+/** (服务器渲染会用到)*/
 function genSequenceExpression(
   node: SequenceExpression,
   context: CodegenContext
@@ -979,6 +998,7 @@ function genSequenceExpression(
   context.push(`)`)
 }
 
+/** (服务器渲染会用到)*/
 function genReturnStatement(
   { returns }: ReturnStatement,
   context: CodegenContext

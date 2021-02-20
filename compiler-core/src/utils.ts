@@ -34,12 +34,14 @@ import {
 } from './runtimeHelpers'
 import { isString, isObject, hyphenate, extend } from '@vue/shared'
 
+/**判断p是否是节点的表达式节点且它是静态的 */
 export const isStaticExp = (p: JSChildNode): p is SimpleExpressionNode =>
   p.type === NodeTypes.SIMPLE_EXPRESSION && p.isStatic
 
 export const isBuiltInType = (tag: string, expected: string): boolean =>
   tag === expected || tag === hyphenate(expected)
 
+/**判断是否时内置组件(Teleport|Suspense|KeepAlive|BaseTransition)并返回对应的Runtimehelper */
 export function isCoreComponent(tag: string): symbol | void {
   if (isBuiltInType(tag, 'Teleport')) {
     return TELEPORT
@@ -53,15 +55,18 @@ export function isCoreComponent(tag: string): symbol | void {
 }
 
 const nonIdentifierRE = /^\d|[^\$\w]/
+/**字符串不是以数字开头的且字符串中不存在除$,_和字母以外的字符就返回true */
 export const isSimpleIdentifier = (name: string): boolean =>
   !nonIdentifierRE.test(name)
 
 const memberExpRE = /^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*|\[[^\]]+\])*$/
+/**判断表达式是否是成员调用(obj.attr或obj['...']) */
 export const isMemberExpression = (path: string): boolean => {
   if (!path) return false
   return memberExpRE.test(path.trim())
 }
 
+/**通过偏移量和获取的长度根据loc创建一个新的SourceLocation返回 */
 export function getInnerRange(
   loc: SourceLocation,
   offset: number,
@@ -87,6 +92,7 @@ export function getInnerRange(
   return newLoc
 }
 
+/**... */
 export function advancePositionWithClone(
   pos: Position,
   source: string,
@@ -131,6 +137,7 @@ export function assert(condition: boolean, msg?: string) {
   }
 }
 
+/**... */
 export function findDir(
   node: ElementNode,
   name: string | RegExp,
@@ -148,6 +155,7 @@ export function findDir(
   }
 }
 
+/**... */
 export function findProp(
   node: ElementNode,
   name: string,
@@ -186,16 +194,19 @@ export function hasDynamicKeyVBind(node: ElementNode): boolean {
   )
 }
 
+/**判断节点是否为插值节点或文本节点 */
 export function isText(
   node: TemplateChildNode
 ): node is TextNode | InterpolationNode {
   return node.type === NodeTypes.INTERPOLATION || node.type === NodeTypes.TEXT
 }
 
+/**判断指令是否是插槽指令 */
 export function isVSlot(p: ElementNode['props'][0]): p is DirectiveNode {
   return p.type === NodeTypes.DIRECTIVE && p.name === 'slot'
 }
 
+/**判断节点是否是元素节点且标签类型为模板 */
 export function isTemplateNode(
   node: RootNode | TemplateChildNode
 ): node is TemplateNode {
@@ -204,20 +215,21 @@ export function isTemplateNode(
   )
 }
 
+/**判断是否是表示<slot>标签的SlotOutletNode,就是节点类型为NodeTypes.ELEMENT且标签类型为ElementTypes.SLOT */
 export function isSlotOutlet(
   node: RootNode | TemplateChildNode
 ): node is SlotOutletNode {
   return node.type === NodeTypes.ELEMENT && node.tagType === ElementTypes.SLOT
 }
 
+/**... */
 export function injectProp(
   node: VNodeCall | RenderSlotCall,
   prop: Property,
   context: TransformContext
 ) {
   let propsWithInjection: ObjectExpression | CallExpression | undefined
-  const props =
-    node.type === NodeTypes.VNODE_CALL ? node.props : node.arguments[2]
+  const props = node.type === NodeTypes.VNODE_CALL ? node.props : node.arguments[2]
   if (props == null || isString(props)) {
     propsWithInjection = createObjectExpression([prop])
   } else if (props.type === NodeTypes.JS_CALL_EXPRESSION) {
@@ -268,6 +280,7 @@ export function injectProp(
   }
 }
 
+/**...*/
 export function toValidAssetId(
   name: string,
   type: 'component' | 'directive'

@@ -29,17 +29,12 @@ export const transformModel: DirectiveTransform = (dir, node, context) => {
   }
 
   const rawExp = exp.loc.source
-  const expString =
-    exp.type === NodeTypes.SIMPLE_EXPRESSION ? exp.content : rawExp
+  const expString = exp.type === NodeTypes.SIMPLE_EXPRESSION ? exp.content : rawExp
 
   // im SFC <script setup> inline mode, the exp may have been transformed into
   // _unref(exp)
   const bindingType = context.bindingMetadata[rawExp]
-  const maybeRef =
-    !__BROWSER__ &&
-    context.inline &&
-    bindingType &&
-    bindingType !== BindingTypes.SETUP_CONST
+  const maybeRef = !__BROWSER__ && context.inline && bindingType && bindingType !== BindingTypes.SETUP_CONST
 
   if (!isMemberExpression(expString) && !maybeRef) {
     context.onError(

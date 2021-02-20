@@ -84,6 +84,7 @@ export interface ParserContext {
   inVPre: boolean // v-pre, do not process directives and interpolations v-pre，不处理指令和插值
 }
 
+/**解析根节点 */
 export function baseParse(
   content: string,
   options: ParserOptions = {}
@@ -172,28 +173,28 @@ function parseChildren(
             advanceBy(context, 3)
             continue
           } else if (/[a-z]/i.test(s[2])) {
-            emitError(context, ErrorCodes.X_INVALID_END_TAG)
+            emitError(context, ErrorCodes.X_INVALID_END_TAG) //无效的结束标签
             parseTag(context, TagType.End, parent)
             continue
           } else {
             emitError(
               context,
-              ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME,
+              ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, //标签名称的第一个字符无效
               2
             )
             node = parseBogusComment(context)
           }
-        } else if (/[a-z]/i.test(s[1])) {
+        } else if (/[a-z]/i.test(s[1])) {//<div,<Com
           node = parseElement(context, ancestors)
         } else if (s[1] === '?') {
           emitError(
             context,
-            ErrorCodes.UNEXPECTED_QUESTION_MARK_INSTEAD_OF_TAG_NAME,
+            ErrorCodes.UNEXPECTED_QUESTION_MARK_INSTEAD_OF_TAG_NAME, //意外的问号，而不是标签名
             1
           )
           node = parseBogusComment(context)
         } else {
-          emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 1)
+          emitError(context, ErrorCodes.INVALID_FIRST_CHARACTER_OF_TAG_NAME, 1) //标签名称的第一个字符无效
         }
       }
     }
@@ -245,7 +246,7 @@ function parseChildren(
           node.content = node.content.replace(/[\t\r\n\f ]+/g, ' ')
         }
       }
-      // also remove comment nodes in prod by default
+      // also remove comment nodes in prod by default 默认情况下也删除产品中的注释节点
       if (
         !__DEV__ &&
         node.type === NodeTypes.COMMENT &&
@@ -267,7 +268,7 @@ function parseChildren(
 
   return removedWhitespace ? nodes.filter(Boolean) : nodes
 }
-
+/** */
 function pushNode(nodes: TemplateChildNode[], node: TemplateChildNode): void {
   if (node.type === NodeTypes.TEXT) {
     const prev = last(nodes)
@@ -379,6 +380,7 @@ function parseBogusComment(context: ParserContext): CommentNode | undefined {
   }
 }
 
+/**解析元素标签(解析它的属性,指令和子元素) */
 function parseElement(
   context: ParserContext,
   ancestors: ElementNode[]
@@ -386,18 +388,19 @@ function parseElement(
   __TEST__ && assert(/^<[a-z]/i.test(context.source))
 
   // Start tag.
-  const wasInPre = context.inPre
+  const wasInPre = context.inPre   //
   const wasInVPre = context.inVPre
   const parent = last(ancestors)
   const element = parseTag(context, TagType.Start, parent)
-  const isPreBoundary = context.inPre && !wasInPre
-  const isVPreBoundary = context.inVPre && !wasInVPre
+  const isPreBoundary = context.inPre && !wasInPre     //判断当前元素节点是否是<pre>的边界(它本身是<pre>,且它没有祖先标签是<pre>)
+  const isVPreBoundary = context.inVPre && !wasInVPre  //判断当前元素节点是否是v-pre指令的标记的边界节点(它本身有v-pre指令,且它没有也有v-pre指令的祖先标签)
 
+  //如果元素是自闭合标签或是默认自闭合标签,那么此元素节点已经解析完成,返回它
   if (element.isSelfClosing || context.options.isVoidTag(element.tag)) {
     return element
   }
 
-  // Children.
+  // Children. 解析元素节点的Children
   ancestors.push(element)
   const mode = context.options.getTextMode(element, parent)
   const children = parseChildren(context, mode, ancestors)
@@ -405,11 +408,11 @@ function parseElement(
 
   element.children = children
 
-  // End tag.
+  // End tag. //处理结束标签
   if (startsWithEndTagOpen(context.source, element.tag)) {
     parseTag(context, TagType.End, parent)
   } else {
-    emitError(context, ErrorCodes.X_MISSING_END_TAG, 0, element.loc.start)
+    emitError(context, ErrorCodes.X_MISSING_END_TAG, 0, element.loc.start) //Children
     if (context.source.length === 0 && element.tag.toLowerCase() === 'script') {
       const first = children[0]
       if (first && startsWith(first.loc.source, '<!--')) {
@@ -434,13 +437,14 @@ const enum TagType {
   End    //表示尾标签 </div>
 }
 
+/**是否是特殊的模板指令 `if,else,else-if,for,slot`*/
 const isSpecialTemplateDirective = /*#__PURE__*/ makeMap(
   `if,else,else-if,for,slot`
 )
 
 /**
  * Parse a tag (E.g. `<div id=a>`) with that type (start tag or end tag).
- * 解析具有该类型（开始标签或结束标签）的标签（例如<div id = a>）
+ * 解析具有该类型（开始标签或结束标签）的标签（例如<div id = a>）parent参数只参与解析命名空间
  */
 function parseTag(
   context: ParserContext,
@@ -459,7 +463,7 @@ function parseTag(
   const tag = match[1]  //标签名
   const ns = context.options.getNamespace(tag, parent)//命名空间
 
-  advanceBy(context, match[0].length)//操作偏移并剔除'<'+tag或'</'+tag
+  advanceBy(context, match[0].length)//操作偏移并剔除'<tagName'或'</tagName'
   advanceSpaces(context)
 
   // save current state in case we need to re-parse attributes with v-pre
@@ -484,12 +488,12 @@ function parseTag(
     // reset context
     extend(context, cursor)
     context.source = currentSource
-    // re-parse attrs and filter out v-pre itself
+    // re-parse attrs and filter out v-pre itself 重新解析属性并滤除v-pre本身(当context.inVPre = true时v-pre指令在parseAttributes函数被当成属性节点处理)
     props = parseAttributes(context, type).filter(p => p.name !== 'v-pre')
   }
 
-  // Tag close.
-  let isSelfClosing = false
+  // Tag close. 标签结尾 '>'或/>
+  let isSelfClosing = false  //标签是否是自闭合
   if (context.source.length === 0) {
     emitError(context, ErrorCodes.EOF_IN_TAG)
   } else {
@@ -497,18 +501,21 @@ function parseTag(
     if (type === TagType.End && isSelfClosing) {
       emitError(context, ErrorCodes.END_TAG_WITH_TRAILING_SOLIDUS)
     }
-    advanceBy(context, isSelfClosing ? 2 : 1)
+    advanceBy(context, isSelfClosing ? 2 : 1) //偏移并剔除标签结束符
   }
 
+  //-----设置标签类型------
   let tagType = ElementTypes.ELEMENT
   const options = context.options
   if (!context.inVPre && !options.isCustomElement(tag)) {
+    //是否有v-is指令
     const hasVIs = props.some(
       p => p.type === NodeTypes.DIRECTIVE && p.name === 'is'
     )
+    //如果没有v-is指令
     if (options.isNativeTag && !hasVIs) {
-      if (!options.isNativeTag(tag)) tagType = ElementTypes.COMPONENT
-    } else if (
+      if (!options.isNativeTag(tag)) tagType = ElementTypes.COMPONENT //如果标签不是原生标签就设置标签类型为组件
+    } else if (//如果标签有v-is指令或是内置组件或是特定于平台的内置组件或标签是大写字母开头或标签为'component'就设置标签类型为组件
       hasVIs ||
       isCoreComponent(tag) ||
       (options.isBuiltInComponent && options.isBuiltInComponent(tag)) ||
@@ -518,6 +525,7 @@ function parseTag(
       tagType = ElementTypes.COMPONENT
     }
 
+    //如果标签为'slot',设置标签类型为插槽
     if (tag === 'slot') {
       tagType = ElementTypes.SLOT
     } else if (
@@ -541,7 +549,7 @@ function parseTag(
     isSelfClosing,
     children: [],
     loc: getSelection(context, start),
-    codegenNode: undefined // to be created during transform phase
+    codegenNode: undefined // to be created during transform phase 在转换阶段创建
   }
 }
 
@@ -820,6 +828,7 @@ function parseInterpolation(
   }
 }
 
+/**解析文本节点 */
 function parseText(context: ParserContext, mode: TextModes): TextNode {
   __TEST__ && assert(context.source.length > 0)
 

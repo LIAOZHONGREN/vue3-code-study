@@ -40,24 +40,29 @@ import { walk } from 'estree-walker'
 import { IS_REF, UNREF } from '../runtimeHelpers'
 import { BindingTypes } from '../options'
 
+/**判断字符是不是'true','false','null'或'this' */
 const isLiteralWhitelisted = /*#__PURE__*/ makeMap('true,false,null,this')
 
 export const transformExpression: NodeTransform = (node, context) => {
+  //节点为插值节点
   if (node.type === NodeTypes.INTERPOLATION) {
     node.content = processExpression(
       node.content as SimpleExpressionNode,
       context
     )
+
+    //节点为元素节点
   } else if (node.type === NodeTypes.ELEMENT) {
-    // handle directives on element
+    // handle directives on element 处理元素上的指令
     for (let i = 0; i < node.props.length; i++) {
       const dir = node.props[i]
       // do not process for v-on & v-for since they are special handled
+      //不处理v-on和v-for，因为它们需要特殊处理
       if (dir.type === NodeTypes.DIRECTIVE && dir.name !== 'for') {
         const exp = dir.exp
         const arg = dir.arg
         // do not process exp if this is v-on:arg - we need special handling
-        // for wrapping inline statements.
+        // for wrapping inline statements. 如果这是v-on:arg，则不要处理exp-我们需要对包装内联语句进行特殊处理
         if (
           exp &&
           exp.type === NodeTypes.SIMPLE_EXPRESSION &&
@@ -66,7 +71,7 @@ export const transformExpression: NodeTransform = (node, context) => {
           dir.exp = processExpression(
             exp,
             context,
-            // slot args must be processed as function params
+            // slot args must be processed as function params 插槽args必须作为函数参数处理
             dir.name === 'slot'
           )
         }
@@ -93,11 +98,13 @@ export function processExpression(
   node: SimpleExpressionNode,
   context: TransformContext,
   // some expressions like v-slot props & v-for aliases should be parsed as
-  // function params
+  // function params  v-slot props和v-for别名之类的某些表达式应解析为函数参数 
   asParams = false,
-  // v-on handler values may contain multiple statements
+  // v-on handler values may contain multiple statements v-on处理程序值可能包含多个语句
   asRawStatements = false
 ): ExpressionNode {
+
+  //浏览器环境 node原值返回
   if (__BROWSER__) {
     if (__DEV__) {
       // simple in-browser validation (same logic in 2.x)
@@ -106,6 +113,7 @@ export function processExpression(
     return node
   }
 
+  //node原值返回
   if (!context.prefixIdentifiers || !node.content.trim()) {
     return node
   }
@@ -193,9 +201,10 @@ export function processExpression(
 
   // fast path if expression is a simple identifier.
   const rawExp = node.content
-  // bail constant on parens (function invocation) and dot (member access)
+  // bail constant on parens (function invocation) and dot (member access) 保释常数（函数调用）和点（成员访问权）
   const bailConstant = rawExp.indexOf(`(`) > -1 || rawExp.indexOf('.') > 0
 
+  //如果是简单的表达式(是一个符合命名标准的变量名或常量名)
   if (isSimpleIdentifier(rawExp)) {
     const isScopeVarReference = context.identifiers[rawExp]
     const isAllowedGlobal = isGloballyWhitelisted(rawExp)
@@ -223,13 +232,9 @@ export function processExpression(
   //    exp, but make sure to pad with spaces for consistent ranges
   // 2. Expressions: wrap with parens (for e.g. object expressions)
   // 3. Function arguments (v-for, v-slot): place in a function argument position
-  const source = asRawStatements
-    ? ` ${rawExp} `
-    : `(${rawExp})${asParams ? `=>{}` : ``}`
+  const source = asRawStatements ? ` ${rawExp} ` : `(${rawExp})${asParams ? `=>{}` : ``}`
   try {
-    ast = parse(source, {
-      plugins: [...context.expressionPlugins, ...babelParserDefaultPlugins]
-    }).program
+    ast = parse(source, {plugins: [...context.expressionPlugins, ...babelParserDefaultPlugins]}).program
   } catch (e) {
     context.onError(
       createCompilerError(
@@ -244,11 +249,10 @@ export function processExpression(
 
   const ids: (Identifier & PrefixMeta)[] = []
   const knownIds = Object.create(context.identifiers)
-  const isDuplicate = (node: Node & PrefixMeta): boolean =>
-    ids.some(id => id.start === node.start)
+  const isDuplicate = (node: Node & PrefixMeta): boolean =>  ids.some(id => id.start === node.start)
   const parentStack: Node[] = []
 
-  // walk the AST and look for identifiers that need to be prefixed.
+  // walk the AST and look for identifiers that need to be prefixed. 遍历AST并查找需要加前缀的标识符。
   ;(walk as any)(ast, {
     enter(node: Node & PrefixMeta, parent: Node | undefined) {
       parent && parentStack.push(parent)
@@ -367,15 +371,18 @@ export function processExpression(
   return ret
 }
 
+/**判断节点是否是方法类型的节点 */
 const isFunction = (node: Node): node is Function => {
   return /Function(?:Expression|Declaration)$|Method$/.test(node.type)
 }
 
+/**判断对象属性类型的节点是否是静态属性 */
 const isStaticProperty = (node: Node): node is ObjectProperty =>
   node &&
   (node.type === 'ObjectProperty' || node.type === 'ObjectMethod') &&
   !node.computed
 
+  /**判断节点是否是静态的对象属性类型的节点的key */
 const isStaticPropertyKey = (node: Node, parent: Node) =>
   isStaticProperty(parent) && parent.key === node
 

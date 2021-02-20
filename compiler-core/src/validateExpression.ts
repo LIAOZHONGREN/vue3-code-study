@@ -1,10 +1,18 @@
+/*
+ * @Author: your name
+ * @Date: 2020-12-14 14:48:47
+ * @LastEditTime: 2021-01-18 13:56:39
+ * @LastEditors: Please set LastEditors
+ * @Description: In User Settings Edit
+ * @FilePath: \vue-next-master\packages\compiler-core\src\validateExpression.ts
+ */
 // these keywords should not appear inside expressions, but operators like
 
 import { SimpleExpressionNode } from './ast'
 import { TransformContext } from './transform'
 import { createCompilerError, ErrorCodes } from './errors'
 
-// typeof, instanceof and in are allowed
+// typeof, instanceof and in are allowed 允许typeof，instanceof和in
 const prohibitedKeywordRE = new RegExp(
   '\\b' +
     (
@@ -17,7 +25,7 @@ const prohibitedKeywordRE = new RegExp(
     '\\b'
 )
 
-// strip strings in expressions
+// strip strings in expressions 删除表达式中的字符串
 const stripStringRE = /'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*\$\{|\}(?:[^`\\]|\\.)*`|`(?:[^`\\]|\\.)*`/g
 
 /**
@@ -34,7 +42,7 @@ export function validateBrowserExpression(
   const exp = node.content
 
   // empty expressions are validated per-directive since some directives
-  // do allow empty expressions.
+  // do allow empty expressions. 每个指令都验证空表达式，因为某些指令确实允许空表达式。
   if (!exp.trim()) {
     return
   }
@@ -50,6 +58,7 @@ export function validateBrowserExpression(
     const keywordMatch = exp
       .replace(stripStringRE, '')
       .match(prohibitedKeywordRE)
+    //避免将JavaScript关键字用作属性名称  
     if (keywordMatch) {
       message = `avoid using JavaScript keyword as property name: "${
         keywordMatch[0]

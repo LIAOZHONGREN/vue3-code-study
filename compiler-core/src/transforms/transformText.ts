@@ -12,7 +12,7 @@ import { CREATE_TEXT } from '../runtimeHelpers'
 import { PatchFlags, PatchFlagNames } from '@vue/shared'
 import { getConstantType } from './hoistStatic'
 
-// Merge adjacent text nodes and expressions into a single expression
+// Merge adjacent text nodes and expressions into a single expression 将相邻的文本节点和表达式合并到单个表达式中
 // e.g. <div>abc {{ d }} {{ e }}</div> should have a single expression node as child.
 export const transformText: NodeTransform = (node, context) => {
   if (

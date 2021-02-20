@@ -51,18 +51,9 @@ export const transformFor = createStructuralDirectiveTransform(
     return processFor(node, dir, context, forNode => {
       // create the loop render function expression now, and add the
       // iterator on exit after all children have been traversed
-      const renderExp = createCallExpression(helper(RENDER_LIST), [
-        forNode.source
-      ]) as ForRenderListExpression
+      const renderExp = createCallExpression(helper(RENDER_LIST), [forNode.source]) as ForRenderListExpression
       const keyProp = findProp(node, `key`)
-      const keyProperty = keyProp
-        ? createObjectProperty(
-            `key`,
-            keyProp.type === NodeTypes.ATTRIBUTE
-              ? createSimpleExpression(keyProp.value!.content, true)
-              : keyProp.exp!
-          )
-        : null
+      const keyProperty = keyProp ? createObjectProperty(`key`, keyProp.type === NodeTypes.ATTRIBUTE ? createSimpleExpression(keyProp.value!.content, true) : keyProp.exp!) : null
 
       if (!__BROWSER__ && context.prefixIdentifiers && keyProperty) {
         // #2085 process :key expression needs to be processed in order for it
@@ -76,21 +67,15 @@ export const transformFor = createStructuralDirectiveTransform(
         )
       }
 
-      const isStableFragment =
-        forNode.source.type === NodeTypes.SIMPLE_EXPRESSION &&
-        forNode.source.constType > 0
-      const fragmentFlag = isStableFragment
-        ? PatchFlags.STABLE_FRAGMENT
-        : keyProp
-          ? PatchFlags.KEYED_FRAGMENT
-          : PatchFlags.UNKEYED_FRAGMENT
+      const isStableFragment = forNode.source.type === NodeTypes.SIMPLE_EXPRESSION && forNode.source.constType > 0
+      const fragmentFlag = isStableFragment ? PatchFlags.STABLE_FRAGMENT : keyProp ? PatchFlags.KEYED_FRAGMENT : PatchFlags.UNKEYED_FRAGMENT
       forNode.codegenNode = createVNodeCall(
         context,
         helper(FRAGMENT),
         undefined,
         renderExp,
         fragmentFlag +
-          (__DEV__ ? ` /* ${PatchFlagNames[fragmentFlag]} */` : ``),
+        (__DEV__ ? ` /* ${PatchFlagNames[fragmentFlag]} */` : ``),
         undefined,
         undefined,
         true /* isBlock */,
@@ -99,7 +84,7 @@ export const transformFor = createStructuralDirectiveTransform(
       ) as ForCodegenNode
 
       return () => {
-        // finish the codegen now that all children have been traversed
+        // finish the codegen now that all children have been traversed 完成遍历所有子代的代码生成
         let childBlock: BlockCodegenNode
         const isTemplate = isTemplateNode(node)
         const { children } = forNode
@@ -122,13 +107,9 @@ export const transformFor = createStructuralDirectiveTransform(
           })
         }
 
-        const needFragmentWrapper =
-          children.length !== 1 || children[0].type !== NodeTypes.ELEMENT
-        const slotOutlet = isSlotOutlet(node)
-          ? node
-          : isTemplate &&
-            node.children.length === 1 &&
-            isSlotOutlet(node.children[0])
+        const needFragmentWrapper = children.length !== 1 || children[0].type !== NodeTypes.ELEMENT
+        //node是<slot v-for="..."> 或 <template v-for="..."><slot/></template>
+        const slotOutlet = isSlotOutlet(node) ? node  : isTemplate && node.children.length === 1 &&  isSlotOutlet(node.children[0])
             ? (node.children[0] as SlotOutletNode) // api-extractor somehow fails to infer this
             : null
 
@@ -150,9 +131,9 @@ export const transformFor = createStructuralDirectiveTransform(
             keyProperty ? createObjectExpression([keyProperty]) : undefined,
             node.children,
             PatchFlags.STABLE_FRAGMENT +
-              (__DEV__
-                ? ` /* ${PatchFlagNames[PatchFlags.STABLE_FRAGMENT]} */`
-                : ``),
+            (__DEV__
+              ? ` /* ${PatchFlagNames[PatchFlags.STABLE_FRAGMENT]} */`
+              : ``),
             undefined,
             undefined,
             true
@@ -185,12 +166,15 @@ export const transformFor = createStructuralDirectiveTransform(
 )
 
 // target-agnostic transform used for both Client and SSR
+/**创建ForNode把node替换... */
 export function processFor(
   node: ElementNode,
   dir: DirectiveNode,
   context: TransformContext,
   processCodegen?: (forNode: ForNode) => (() => void) | undefined
 ) {
+
+  //<div v-for >...</div> :报错
   if (!dir.exp) {
     context.onError(
       createCompilerError(ErrorCodes.X_V_FOR_NO_EXPRESSION, dir.loc)
@@ -198,6 +182,7 @@ export function processFor(
     return
   }
 
+  //<div v-for="item,key,item in source" >...</div>:解析item,key,item in source
   const parseResult = parseForExpression(
     // can only be simple expression because vFor transform is applied
     // before expression transform.
@@ -226,10 +211,11 @@ export function processFor(
     children: isTemplateNode(node) ? node.children : [node]
   }
 
+  //把当前解析的有for指令的节点替换成ForNode
   context.replaceNode(forNode)
 
   // bookkeeping
-  scopes.vFor++
+  scopes.vFor++ //记录ForNode的深度(ForNode的嵌套层:例如:<div v-for="item in source">...<div v-for="item in source">...</div></div>)
   if (!__BROWSER__ && context.prefixIdentifiers) {
     // scope management
     // inject identifiers to context
@@ -241,7 +227,7 @@ export function processFor(
   const onExit = processCodegen && processCodegen(forNode)
 
   return () => {
-    scopes.vFor--
+    scopes.vFor-- //解析完一层就减一
     if (!__BROWSER__ && context.prefixIdentifiers) {
       value && removeIdentifiers(value)
       key && removeIdentifiers(key)
@@ -257,25 +243,40 @@ const forAliasRE = /([\s\S]*?)\s+(?:in|of)\s+([\s\S]*)/
 const forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/
 const stripParensRE = /^\(|\)$/g
 
+
 export interface ForParseResult {
-  source: ExpressionNode
+  source: ExpressionNode  //"item in value":source表示value
   value: ExpressionNode | undefined
   key: ExpressionNode | undefined
   index: ExpressionNode | undefined
 }
 
+
+/**
+ * 把SimpleExpressionNode解析成ForParseResult,
+ * 例子:SimpleExpressionNode.content为"(item,index) in value","item in value"或"(item,key,index) in value",
+ * 那么解析出:
+ * {
+  source: ExpressionNode.content为"value"
+  value: undefined|ExpressionNode.content为"item"
+  key: undefined|ExpressionNode.content为"key"
+  index: undefined|ExpressionNode.content为"index"
+}
+ * */
 export function parseForExpression(
   input: SimpleExpressionNode,
   context: TransformContext
 ): ForParseResult | undefined {
   const loc = input.loc
-  const exp = input.content
+  const exp = input.content //例子:exp为"(item,index) in value"
   const inMatch = exp.match(forAliasRE)
   if (!inMatch) return
 
+  //例子:"(item,index) in value",LHS为"(item,index)",RHS为"value"
   const [, LHS, RHS] = inMatch
 
   const result: ForParseResult = {
+    //source:例子:"(item,index) in value",source为表示"value"的SimpleExpressionNode
     source: createAliasExpression(
       loc,
       RHS.trim(),
@@ -285,6 +286,7 @@ export function parseForExpression(
     key: undefined,
     index: undefined
   }
+
   if (!__BROWSER__ && context.prefixIdentifiers) {
     result.source = processExpression(
       result.source as SimpleExpressionNode,
@@ -294,12 +296,11 @@ export function parseForExpression(
   if (__DEV__ && __BROWSER__) {
     validateBrowserExpression(result.source as SimpleExpressionNode, context)
   }
-
-  let valueContent = LHS.trim()
-    .replace(stripParensRE, '')
-    .trim()
+  //去掉'('和')'后再去掉两端空格.例如:"( item,index ) in value",valueContent为"item,index"
+  let valueContent = LHS.trim().replace(stripParensRE, '').trim()
   const trimmedOffset = LHS.indexOf(valueContent)
 
+  /** ......解析 key和index..... */
   const iteratorMatch = valueContent.match(forIteratorRE)
   if (iteratorMatch) {
     valueContent = valueContent.replace(forIteratorRE, '').trim()
@@ -349,6 +350,7 @@ export function parseForExpression(
     }
   }
 
+  //......解析value......
   if (valueContent) {
     result.value = createAliasExpression(loc, valueContent, trimmedOffset)
     if (!__BROWSER__ && context.prefixIdentifiers) {
@@ -378,28 +380,29 @@ function createAliasExpression(
   )
 }
 
+/**创建for循环参数,就是把undefined的参数创建一个content为"_"的简单表达式节点代替 */
 export function createForLoopParams({
   value,
   key,
   index
 }: ForParseResult): ExpressionNode[] {
   const params: ExpressionNode[] = []
-  if (value) {
+  if (value) {//"item in source"
     params.push(value)
   }
   if (key) {
-    if (!value) {
+    if (!value) {//"(_,key) in source"
       params.push(createSimpleExpression(`_`, false))
-    }
+    }//"(item,key) in source"
     params.push(key)
   }
   if (index) {
     if (!key) {
-      if (!value) {
+      if (!value) {//"(_,__,index) in source"
         params.push(createSimpleExpression(`_`, false))
-      }
+      }//"(item,__,index) in source"
       params.push(createSimpleExpression(`__`, false))
-    }
+    }//"(item,key,index) in source"
     params.push(index)
   }
   return params

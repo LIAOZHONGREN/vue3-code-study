@@ -16,12 +16,15 @@ import { validateBrowserExpression } from '../validateExpression'
 import { hasScopeRef, isMemberExpression } from '../utils'
 import { TO_HANDLER_KEY } from '../runtimeHelpers'
 
-const fnExpRE = /^\s*([\w$_]+|\([^)]*?\))\s*=>|^\s*function(?:\s+[\w$]+)?\s*\(/
+const fnExpRE = /^\s*([\w$_]+|\([^)]*?\))\s*=>|^\s*function(?:\s+[\w$]+)?\s*\(/ //用于判断是否是方法表达式
 
 export interface VOnDirectiveNode extends DirectiveNode {
   // v-on without arg is handled directly in ./transformElements.ts due to it affecting
   // codegen for the entire props object. This transform here is only for v-on
   // *with* args.
+  //不带arg的v-on直接在./transformElements.ts中处理，因为它会影响
+  //整个props对象的codegen。此转换仅适用于v-on
+  //*带有*args。 
   arg: ExpressionNode
   // exp is guaranteed to be a simple expression here because v-on w/ arg is
   // skipped by transformExpression as a special case.
@@ -35,6 +38,7 @@ export const transformOn: DirectiveTransform = (
   augmentor
 ) => {
   const { loc, modifiers, arg } = dir as VOnDirectiveNode
+  //如果指令没有绑定事件函数值,而且也没有修饰符
   if (!dir.exp && !modifiers.length) {
     context.onError(createCompilerError(ErrorCodes.X_V_ON_NO_EXPRESSION, loc))
   }
@@ -43,18 +47,10 @@ export const transformOn: DirectiveTransform = (
     if (arg.isStatic) {
       const rawName = arg.content
       // for all event listeners, auto convert it to camelCase. See issue #2249
-      eventName = createSimpleExpression(
-        toHandlerKey(camelize(rawName)),
-        true,
-        arg.loc
-      )
+      eventName = createSimpleExpression(toHandlerKey(camelize(rawName)),true,arg.loc)
     } else {
       // #2388
-      eventName = createCompoundExpression([
-        `${context.helperString(TO_HANDLER_KEY)}(`,
-        arg,
-        `)`
-      ])
+      eventName = createCompoundExpression([`${context.helperString(TO_HANDLER_KEY)}(`,arg,`)`])
     }
   } else {
     // already a compound expression.
@@ -72,9 +68,9 @@ export const transformOn: DirectiveTransform = (
   }
   let shouldCache: boolean = context.cacheHandlers && !exp
   if (exp) {
-    const isMemberExp = isMemberExpression(exp.content)
-    const isInlineStatement = !(isMemberExp || fnExpRE.test(exp.content))
-    const hasMultipleStatements = exp.content.includes(`;`)
+    const isMemberExp = isMemberExpression(exp.content) //是否是成员调用
+    const isInlineStatement = !(isMemberExp || fnExpRE.test(exp.content)) //是否是内联语句
+    const hasMultipleStatements = exp.content.includes(`;`)  //是否有多个语句
 
     // process the expression since it's been skipped
     if (!__BROWSER__ && context.prefixIdentifiers) {
@@ -127,14 +123,12 @@ export const transformOn: DirectiveTransform = (
     if (isInlineStatement || (shouldCache && isMemberExp)) {
       // wrap inline statement in a function expression
       exp = createCompoundExpression([
-        `${
-          isInlineStatement
-            ? !__BROWSER__ && context.isTS
-              ? `($event: any)`
-              : `$event`
-            : `${
-                !__BROWSER__ && context.isTS ? `\n//@ts-ignore\n` : ``
-              }(...args)`
+        `${isInlineStatement
+          ? !__BROWSER__ && context.isTS
+            ? `($event: any)`
+            : `$event`
+          : `${!__BROWSER__ && context.isTS ? `\n//@ts-ignore\n` : ``
+          }(...args)`
         } => ${hasMultipleStatements ? `{` : `(`}`,
         exp,
         hasMultipleStatements ? `}` : `)`

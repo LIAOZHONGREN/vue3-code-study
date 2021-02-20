@@ -26,6 +26,7 @@ export function hoistStatic(root: RootNode, context: TransformContext) {
   )
 }
 
+/**判断根节点(RootNode)是否只有一个子元素节点 */
 export function isSingleElementRoot(
   root: RootNode,
   child: TemplateChildNode
@@ -57,18 +58,17 @@ function walk(
   const { children } = node
   for (let i = 0; i < children.length; i++) {
     const child = children[i]
-    // only plain elements & text calls are eligible for hoisting.
-    if (
-      child.type === NodeTypes.ELEMENT &&
-      child.tagType === ElementTypes.ELEMENT
-    ) {
-      const constantType = doNotHoistNode
-        ? ConstantTypes.NOT_CONSTANT
-        : getConstantType(child, context)
+    // only plain elements & text calls are eligible for hoisting. 仅普通元素和文本调用才可进行提升。
+    //如果child是普通元素节点
+    if (child.type === NodeTypes.ELEMENT && child.tagType === ElementTypes.ELEMENT) {
+      const constantType = doNotHoistNode ? ConstantTypes.NOT_CONSTANT : getConstantType(child, context)
+      //如果child的constantType大于ConstantTypes.NOT_CONSTANT(就是它的constantType类型可能是'可以跳过patch处理','可以提升'或'可以字符串化')
       if (constantType > ConstantTypes.NOT_CONSTANT) {
+        //如果child的constantType不是ConstantTypes.CAN_STRINGIFY('可以字符串化')
         if (constantType < ConstantTypes.CAN_STRINGIFY) {
           canStringify = false
         }
+        //如果如果child的constantType是ConstantTypes.CAN_HOIST(可以提升)或ConstantTypes.CAN_STRINGIFY('可以字符串化')
         if (constantType >= ConstantTypes.CAN_HOIST) {
           ;(child.codegenNode as VNodeCall).patchFlag =
             PatchFlags.HOISTED + (__DEV__ ? ` /* HOISTED */` : ``)
@@ -79,15 +79,13 @@ function walk(
       } else {
         // node may contain dynamic children, but its props may be eligible for
         // hoisting.
+        //节点包含动态子节点，但其道具可能有资格吊装。
         const codegenNode = child.codegenNode!
         if (codegenNode.type === NodeTypes.VNODE_CALL) {
           const flag = getPatchFlag(codegenNode)
           if (
-            (!flag ||
-              flag === PatchFlags.NEED_PATCH ||
-              flag === PatchFlags.TEXT) &&
-            getGeneratedPropsConstantType(child, context) >=
-              ConstantTypes.CAN_HOIST
+            (!flag ||flag === PatchFlags.NEED_PATCH ||flag === PatchFlags.TEXT) &&
+            getGeneratedPropsConstantType(child, context) >= ConstantTypes.CAN_HOIST
           ) {
             const props = getNodeProps(child)
             if (props) {
@@ -132,6 +130,7 @@ function walk(
   }
 }
 
+/**获取节点的ConstantTypes */
 export function getConstantType(
   node: TemplateChildNode | SimpleExpressionNode,
   context: TransformContext
@@ -139,9 +138,12 @@ export function getConstantType(
   const { constantCache } = context
   switch (node.type) {
     case NodeTypes.ELEMENT:
+      //节点的标签类型不是普通元素标签(ElementTypes.ELEMENT),返回ConstantTypes.NOT_CONSTANT
       if (node.tagType !== ElementTypes.ELEMENT) {
         return ConstantTypes.NOT_CONSTANT
       }
+
+      //有缓存,直接返回缓存值
       const cached = constantCache.get(node)
       if (cached !== undefined) {
         return cached
@@ -251,6 +253,7 @@ export function getConstantType(
   }
 }
 
+/**... */
 function getGeneratedPropsConstantType(
   node: PlainElementNode,
   context: TransformContext
@@ -283,6 +286,7 @@ function getGeneratedPropsConstantType(
   return returnType
 }
 
+/**node.codegenNode.props */
 function getNodeProps(node: PlainElementNode) {
   const codegenNode = node.codegenNode!
   if (codegenNode.type === NodeTypes.VNODE_CALL) {
@@ -290,6 +294,7 @@ function getNodeProps(node: PlainElementNode) {
   }
 }
 
+/**获取VNodeCall的PatchFlag标注 */
 function getPatchFlag(node: VNodeCall): number | undefined {
   const flag = node.patchFlag
   return flag ? parseInt(flag, 10) : undefined

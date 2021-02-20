@@ -23,7 +23,7 @@ export interface ParserOptions {
    */
   isPreTag?: (tag: string) => boolean
   /**
-   * Platform-specific built-in components e.g. `<Transition>` 判断是否是特定于平台的内置组件,例如:<Transition>
+   * Platform-specific built-in components e.g. `<Transition>` 判断是否是特定于平台的内置组件,例如:'<Transition>'
    */
   isBuiltInComponent?: (tag: string) => symbol | void
   /**
@@ -83,7 +83,7 @@ export const enum BindingTypes {
    */
   SETUP_CONST = 'setup-const',
   /**
-   * a const binding that may be a ref.
+   * a const binding that may be a ref. (ref()处理的值)
    */
   SETUP_MAYBE_REF = 'setup-maybe-ref',
   /**

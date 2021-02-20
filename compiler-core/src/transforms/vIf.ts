@@ -56,7 +56,7 @@ export const transformIf = createStructuralDirectiveTransform(
       // Exit callback. Complete the codegenNode when all children have been
       // transformed.
       return () => {
-        if (isRoot) {
+        if (isRoot) {//isRoot为true表示branch为if分支节点
           ifNode.codegenNode = createCodegenNodeForBranch(
             branch,
             key,
@@ -77,6 +77,7 @@ export const transformIf = createStructuralDirectiveTransform(
 )
 
 // target-agnostic transform used for both Client and SSR
+/**把v-if,v-else-if,v-else解构的节点处理成IfNode */
 export function processIf(
   node: ElementNode,
   dir: DirectiveNode,
@@ -87,10 +88,7 @@ export function processIf(
     isRoot: boolean
   ) => (() => void) | undefined
 ) {
-  if (
-    dir.name !== 'else' &&
-    (!dir.exp || !(dir.exp as SimpleExpressionNode).content.trim())
-  ) {
+  if ( dir.name !== 'else' && (!dir.exp || !(dir.exp as SimpleExpressionNode).content.trim())) {
     const loc = dir.exp ? dir.exp.loc : node.loc
     context.onError(
       createCompilerError(ErrorCodes.X_V_IF_NO_EXPRESSION, dir.loc)
@@ -120,18 +118,20 @@ export function processIf(
       return processCodegen(ifNode, branch, true)
     }
   } else {
-    // locate the adjacent v-if
+    // locate the adjacent v-if 找到相邻的v-if
     const siblings = context.parent!.children
     const comments = []
     let i = siblings.indexOf(node)
     while (i-- >= -1) {
       const sibling = siblings[i]
+      //跳入注释节点
       if (__DEV__ && sibling && sibling.type === NodeTypes.COMMENT) {
         context.removeNode(sibling)
         comments.unshift(sibling)
         continue
       }
 
+      //如果兄弟节点为文本节点,且文本内容去左右空格后为空文本就移除此节点且跳过此处循环
       if (
         sibling &&
         sibling.type === NodeTypes.TEXT &&
@@ -140,16 +140,17 @@ export function processIf(
         context.removeNode(sibling)
         continue
       }
-
+      
+      //如果兄弟节点的节点类型为NodeTypes.IF,不是就抛个错误退出循环
       if (sibling && sibling.type === NodeTypes.IF) {
         // move the node to the if node's branches
-        context.removeNode()
+        context.removeNode()//从转换链中移除当前转换的节点(以外节点将被转换为if的分支节点加入IfNode.branches)
         const branch = createIfBranch(node, dir)
         if (__DEV__ && comments.length) {
           branch.children = [...comments, ...branch.children]
         }
 
-        // check if user is forcing same key on different branches
+        // check if user is forcing same key on different branches 检查用户是否在不同分支上强制使用相同的键
         if (__DEV__ || !__BROWSER__) {
           const key = branch.userKey
           if (key) {
@@ -166,15 +167,17 @@ export function processIf(
           }
         }
 
-        sibling.branches.push(branch)
+        sibling.branches.push(branch)//把else或else if 类型的分支放入IfNode.branches
         const onExit = processCodegen && processCodegen(sibling, branch, false)
         // since the branch was removed, it will not be traversed.
-        // make sure to traverse here.
+        // make sure to traverse here. 
+        //由于分支已删除，因此将不会遍历它。确保在这里遍历。 
         traverseNode(branch, context)
         // call on exit
         if (onExit) onExit()
         // make sure to reset currentNode after traversal to indicate this
         // node has been removed.
+        //确保遍历后重置currentNode以表明这一节点已删除。 
         context.currentNode = null
       } else {
         context.onError(
@@ -186,6 +189,7 @@ export function processIf(
   }
 }
 
+/**创建if的分支节点(就是表示有else或else-if指令的节点的IfBranchNode) */
 function createIfBranch(node: ElementNode, dir: DirectiveNode): IfBranchNode {
   return {
     type: NodeTypes.IF_BRANCH,
@@ -199,6 +203,7 @@ function createIfBranch(node: ElementNode, dir: DirectiveNode): IfBranchNode {
   }
 }
 
+/** */
 function createCodegenNodeForBranch(
   branch: IfBranchNode,
   keyIndex: number,
@@ -220,6 +225,7 @@ function createCodegenNodeForBranch(
   }
 }
 
+/** */
 function createChildrenCodegenNode(
   branch: IfBranchNode,
   keyIndex: number,
@@ -277,6 +283,7 @@ function createChildrenCodegenNode(
   }
 }
 
+/**判断两个节点的key是否一样 */
 function isSameKey(
   a: AttributeNode | DirectiveNode | undefined,
   b: AttributeNode | DirectiveNode
@@ -306,6 +313,7 @@ function isSameKey(
   return true
 }
 
+/** */
 function getParentCondition(
   node: IfConditionalExpression | CacheExpression
 ): IfConditionalExpression {

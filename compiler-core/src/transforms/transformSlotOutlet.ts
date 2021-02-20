@@ -13,6 +13,7 @@ import { createCompilerError, ErrorCodes } from '../errors'
 import { RENDER_SLOT } from '../runtimeHelpers'
 import { camelize } from '@vue/shared/'
 
+/**创建用于生成renderSlot调用的代码块的CallExpression赋值给node.codegenNode */
 export const transformSlotOutlet: NodeTransform = (node, context) => {
   if (isSlotOutlet(node)) {
     const { children, loc } = node
@@ -47,6 +48,7 @@ interface SlotOutletProcessResult {
   slotProps: PropsExpression | undefined
 }
 
+/**处理表示<slot>标签的SlotOutletNode,返回插槽名和插槽的props */
 export function processSlotOutlet(
   node: SlotOutletNode,
   context: TransformContext
@@ -54,7 +56,7 @@ export function processSlotOutlet(
   let slotName: string | ExpressionNode = `"default"`
   let slotProps: PropsExpression | undefined = undefined
 
-  const nonNameProps = []
+  const nonNameProps = [] //存放出name以外的prop
   for (let i = 0; i < node.props.length; i++) {
     const p = node.props[i]
     if (p.type === NodeTypes.ATTRIBUTE) {

@@ -76,6 +76,7 @@ export type StructuralDirectiveTransform = (
   context: TransformContext
 ) => void | (() => void)
 
+/** */
 export interface ImportItem {
   exp: string | ExpressionNode
   path: string
@@ -105,7 +106,7 @@ export interface TransformContext
   helper<T extends symbol>(name: T): T
   helperString(name: symbol): string
   replaceNode(node: TemplateChildNode): void
-  removeNode(node?: TemplateChildNode): void
+  removeNode(node?: TemplateChildNode): void 
   onNodeRemoved(): void
   addIdentifiers(exp: ExpressionNode | string): void
   removeIdentifiers(exp: ExpressionNode | string): void
@@ -227,7 +228,7 @@ export function createTransformContext(
     },
     onNodeRemoved: () => {},
     addIdentifiers(exp) {
-      // identifier tracking only happens in non-browser builds.
+      // identifier tracking only happens in non-browser builds. 标识符跟踪只发生在非浏览器版本中
       if (!__BROWSER__) {
         if (isString(exp)) {
           addId(exp)
@@ -304,7 +305,7 @@ function createRootCodegen(root: RootNode, context: TransformContext) {
   const { children } = root
   if (children.length === 1) {
     const child = children[0]
-    // if the single child is an element, turn it into a block.
+    // if the single child is an element, turn it into a block. 如果单个孩子是一个元素，请将其变成一个块。
     if (isSingleElementRoot(root, child) && child.codegenNode) {
       // single element root is never hoisted so codegenNode will never be
       // SimpleExpressionNode
@@ -385,11 +386,11 @@ export function traverseNode(
       }
     }
     if (!context.currentNode) {
-      // node was removed
+      // node was removed 节点已删除
       return
     } else {
-      // node may have been replaced
-      node = context.currentNode
+      // node may have been replaced 节点可能已被替换
+      node = context.currentNode 
     }
   }
 
@@ -430,6 +431,7 @@ export function traverseNode(
   }
 }
 
+/** */
 export function createStructuralDirectiveTransform(
   name: string | RegExp,
   fn: StructuralDirectiveTransform
